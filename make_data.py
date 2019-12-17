@@ -9,7 +9,7 @@ products_box_size = pd.read_csv('docs/icboxd_Box_Detail.csv', header=0, index_co
 
 inventory_per_locations = pd.merge(locations, inventory, left_index=True, right_index=True)
 
-def get_orders(start_date='2020-3-1', end_date='2020-3-31'):
+def get_orders(start_date='2019-12-13', end_date='2020-01-15'):
 
     return orders.loc[start_date:end_date]
 
@@ -17,6 +17,7 @@ inventory_per_locations.to_csv('docs/inventory_per_locations.csv')
 
 available_locations = set(locations.index.unique().tolist()) - set(inventory_per_locations.index.unique().tolist())
 orders_march = get_orders()
+
 
 f = {'Units Open':'sum',
     'UPC Code': 'unique'}
@@ -26,6 +27,10 @@ g = {'ICBD_QTY':'max',
 
 is_web = orders_march['Customer #'] == 'KU40'
 is_normal = orders_march['Customer #'] != 'KU40'
+
+orders_march[is_normal].to_csv('docs/future_orders_normal.csv')
+orders_march[is_web].to_csv('docs/future_orders_web.csv')
+
 
 sku_orders = orders_march[is_normal].reset_index(drop=False).groupby('UPC Code').agg(f).set_index('UPC Code')
 product_max_box = products_box_size.reset_index(drop=False).groupby('ICBD_UPC').agg(g).set_index('ICBD_UPC')
