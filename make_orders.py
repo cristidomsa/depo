@@ -1,16 +1,91 @@
+
 import json
 import csv
+import datetime
+import utils
+
+HEADER = ["SKU", "Total Normal", "Total KU40", "Total Web", "Items down", "Count down", "Total pallets", "Count pallets", "Total NA", "Count NA", "down minus needed"]
 
 orders = {}
 prov = {}
-with  open('docs/json/locations_inv.json', 'r') as f:
-    inventory = json.load(f)
+
+def _get_customer_type(customer):
+    if customer == 'KU40':
+        return 'reserved'
+    elif customer.strip().startswith('KU'):
+        return 'web'
+    else:
+        return 'normal'
+
+def _get_qty_per_type(dates, order_type):
+    cnt = 0
+    for order in dates:
+        if order['type'] == order_type:
+            cnt += order['QTY']
+    
+    return cnt
+
+def _get_orders_by_date(start_date, end_date):
+    datetime.datetime.strftime()
 
 def find_locations(sku):
     if sku in inventory.keys():
         return inventory[sku]
 
-with open('docs/future_orders_normal.csv') as f:
+def make_status():
+    status = []
+    for sku, data in prov.items():
+        line = []
+        items_down = 0
+        items_up = 0
+        items_na = 0
+        count_up = 0
+        count_down = 0
+        count_na = 0
+        if data['Locations'] is None:
+            continue
+        for loc in data['Locations']:
+            if loc['tier_type'] == "R":
+                items_down += int(loc['QTY'])
+                count_down += 1
+            if loc['tier_type'] == "P":
+                items_up += int(loc['QTY'])
+                count_up += 1
+            if loc['tier_type'] == "NA":
+                items_na += int(loc['QTY'])
+                count_na += 1
+        
+        line.append(sku)
+        line.append(data['QTY_normal'])
+        line.append(data['QTY_KU40'])
+        qty_web = _get_qty_per_type(data['Dates'], "web")
+        line.append(_get_qty_per_type(data['Dates'], "web"))
+
+        line.append(items_down)
+        line.append(count_down)
+        line.append(items_up)
+        line.append(count_up)
+
+        line.append(items_na)
+        line.append(count_na)
+
+        line.append(items_down - data['QTY_normal'] - data['QTY_KU40'] + qty_web)
+        status.append(line)
+    
+    with open('status.csv','w') as f:
+        f.write(",".join(HEADER))
+        f.write('\n')
+        for line in status:
+            f.write(",".join(map(str,line)))
+            f.write('\n')
+
+inventory = utils._read_json('docs/json/sku_inv.json')
+
+loc_desc = utils._read_json('docs/json/loc_desc.json')
+
+orders_web = utils._read_json('docs/json/orders.json')
+
+with open('docs/future_orders.csv') as f:
 
     csvReader = csv.DictReader(f)
     for row in csvReader:
@@ -25,12 +100,32 @@ with open('docs/future_orders_normal.csv') as f:
                                             'QTY': row['Units Open'],
                                             'Locations': find_locations(sku)
             }
-        if sku in prov.keys():
-            prov[sku] += int(row['Units Open'])
-        else:
-            prov[sku] = int(row['Units Open'])
+        if int(row['Units Open']) > 0:
+            if sku not in prov.keys():
+                prov[sku] = {}
+                if row['Customer #'] == 'KU40':
+                    prov[sku]['QTY_KU40'] = int(row['Units Open'])
+                    prov[sku]['QTY_normal'] = 0
+                else:
+                    prov[sku]['QTY_normal'] = int(row['Units Open'])
+                    prov[sku]['QTY_KU40'] = 0
+                prov[sku]['Locations'] = find_locations(sku)
+                prov[sku]['Dates'] = []
+            else:
+                if row['Customer #'] == 'KU40':
+                    prov[sku]['QTY_KU40'] += int(row['Units Open'])
+                else:
+                    prov[sku]['QTY_normal'] += int(row['Units Open'])
+            
+            prov[sku]['Dates'].append({'date': row['Date Start'],
+                                        'id': id,
+                                        'QTY': int(row['Units Open']),
+                                        'type': _get_customer_type(row['Customer #'])})
 
-with open('docs/json/future_orders_normal.json', 'w') as outfile:
+
+make_status()
+
+with open('docs/json/future_orders.json', 'w') as outfile:
     json.dump(orders, outfile)
 
 with open('docs/json/future_sku_qty.json', 'w') as outfile:
