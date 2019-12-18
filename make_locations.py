@@ -10,19 +10,16 @@ inventory = {}
 
 def get_loc_type(desc):
     if desc in loc_desc.keys():
-        tier = loc_desc[desc].split('-')[-2]
-        if int(tier) in [9,10,11]:
-            return 'P'
+        if (loc_desc[desc]['tier_type'] != 'Pick') and (loc_desc[desc]['tier_type'] != 'Reserve'):
+            na_loc.append(desc)
         else:
-            return 'R'
-    else:
-        na_loc.append(desc)
-        return 'NA'
+            return loc_desc[desc]['tier_type']
 
-with open('docs/Locations_fixed.csv') as f:
+with open('docs/Locations.csv') as f:
     reader = csv.DictReader(f)
     for row in reader:
-        loc_desc[row['Name']] = row['DisplayName']
+        loc_desc[row['Name']] = {'desc': row['DisplayName'],
+                                'tier_type': row['LocationType']}
 
 with open('docs/Inventory.csv') as f:
     reader = csv.DictReader(f)
@@ -53,4 +50,4 @@ utils._write_json('docs/json/loc_desc.json', loc_desc)
 
 
 with open('docs/json/na_loc.csv', 'w') as output:
-    output.write(','.join(list(set(na_loc))))
+    output.write('\n'.join(list(set(na_loc))))

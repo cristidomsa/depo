@@ -4,10 +4,12 @@ import csv
 import datetime
 import utils
 
-HEADER = ["SKU", "Total Normal", "Total KU40", "Total Web", "Items down", "Count down", "Total pallets", "Count pallets", "Total NA", "Count NA", "down minus needed"]
+HEADER = ["SKU", "Total Normal", "Total KU40", "Total Web", "Items pickable", "Count pickable locations", "Items on pallets", "Count pallets locations", "down minus needed"]
 
 orders = {}
+orders_ids = []
 prov = {}
+sku_web = {}
 
 def _get_customer_type(customer):
     if customer == 'KU40':
@@ -22,11 +24,23 @@ def _get_qty_per_type(dates, order_type):
     for order in dates:
         if order['type'] == order_type:
             cnt += order['QTY']
-    
+
     return cnt
 
 def _get_orders_by_date(start_date, end_date):
     datetime.datetime.strftime()
+
+def add_web_orders():
+    orders_web = utils._read_json('docs/json/orders.json')
+
+    for order in orders_web:
+        if str(order['Id']) not in orders_ids and order['CustomerNumber'].startswith('KU'):
+            for sku in order['OrderDetails']:
+                if sku['ItemNumber'] in sku_web.keys():
+                    sku_web[sku['ItemNumber']] += sku['Quantity']
+                else:
+                    sku_web[sku['ItemNumber']] = sku['Quantity']
+
 
 def find_locations(sku):
     if sku in inventory.keys():
@@ -45,20 +59,23 @@ def make_status():
         if data['Locations'] is None:
             continue
         for loc in data['Locations']:
-            if loc['tier_type'] == "R":
+            if loc['tier_type'] == "Pick":
                 items_down += int(loc['QTY'])
                 count_down += 1
-            if loc['tier_type'] == "P":
+            elif loc['tier_type'] == "Reserve":
                 items_up += int(loc['QTY'])
                 count_up += 1
-            if loc['tier_type'] == "NA":
+            elif loc['tier_type'] == None:
                 items_na += int(loc['QTY'])
                 count_na += 1
         
         line.append(sku)
         line.append(data['QTY_normal'])
         line.append(data['QTY_KU40'])
-        qty_web = _get_qty_per_type(data['Dates'], "web")
+        if sku in sku_web.keys():
+            qty_web = _get_qty_per_type(data['Dates'], "web") + sku_web[sku]
+        else:
+            qty_web = _get_qty_per_type(data['Dates'], "web")
         line.append(_get_qty_per_type(data['Dates'], "web"))
 
         line.append(items_down)
@@ -66,8 +83,8 @@ def make_status():
         line.append(items_up)
         line.append(count_up)
 
-        line.append(items_na)
-        line.append(count_na)
+       # line.append(items_na)
+        #line.append(count_na)
 
         line.append(items_down - data['QTY_normal'] - data['QTY_KU40'] + qty_web)
         status.append(line)
@@ -90,6 +107,8 @@ with open('docs/future_orders.csv') as f:
     csvReader = csv.DictReader(f)
     for row in csvReader:
         id = row['Order#']
+        if id not in orders_ids:
+            orders_ids.append(id)
         date = row['Date Start']
         if date not in orders.keys():
             orders[date] = {}
@@ -122,7 +141,7 @@ with open('docs/future_orders.csv') as f:
                                         'QTY': int(row['Units Open']),
                                         'type': _get_customer_type(row['Customer #'])})
 
-
+add_web_orders()
 make_status()
 
 with open('docs/json/future_orders.json', 'w') as outfile:

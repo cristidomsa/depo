@@ -9,7 +9,7 @@ products_box_size = pd.read_csv('docs/icboxd_Box_Detail.csv', header=0, index_co
 
 inventory_per_locations = pd.merge(locations, inventory, left_index=True, right_index=True)
 
-def get_orders(start_date='2020-03-01', end_date='2020-03-31'):
+def get_orders(start_date='2019-12-19', end_date='2020-03-31'):
 
     return orders.loc[start_date:end_date]
 
